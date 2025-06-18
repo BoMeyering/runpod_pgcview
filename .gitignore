@@ -192,3 +192,11 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+
+# Ignore models and model_chkpt path files
+models/*.pt
+models/*.pth
+model_chkpt/*.pt
+model_chkpt/*.pth
+model_chkpt/*.ckpt
