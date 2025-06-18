@@ -1,0 +1,4 @@
+runpod
+albumentations
+segmentation_models_pytorch
+effdet
