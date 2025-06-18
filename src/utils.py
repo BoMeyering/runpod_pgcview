@@ -13,24 +13,14 @@ import numpy as np
 from PIL import Image
 
 
-def decode_img(b64_img: str):
-    """ Decode a base64 encoded image """
+def decode_img(b64_arr: str, dtype: str, shape: tuple=(1024, 1024, 3)) -> dict:
+    """ Decode a base64 encoded numpy image array """
     try:
-        img_bytes = base64.b64decode(b64_img)
-        img_buffer = io.BytesIO(img_bytes)
-
-        # Vertfy the image
-        img = Image.open(img_buffer)
-        img.verify()
-
-        # Load and decode
-        img_buffer.seek(0) # Reset the pointer
-        img = Image.open(img_buffer).convert('RGB')
-        img_format = img.format
+        arr_bytes = base64.b64decode(b64_arr)
+        img = np.frombuffer(arr_bytes, dtype=dtype).reshape(shape)
 
         return {
             'image': img,
-            'format': img_format,
             'errors': None
         }
     except Exception as e:
@@ -44,13 +34,12 @@ def encode_out_map(out_map: numpy.ndarray):
     """ Encode the output map from the segmentation model """
 
     try: 
-        out_map = Image.fromarray(out_map)
-        buffer = io.BytesIO()
-        out_map.save(buffer, format='PNG')
-        b64_map = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        b64_map = base64.b64encode(out_map.tobytes()).decode('utf-8')
 
         return {
             'out_map': b64_map,
+            'dtype': str(out_map.dtype),
+            'shape': out_map.shape,
             'errors': None
         }
     except Exception as e:

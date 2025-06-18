@@ -20,20 +20,12 @@ print(endpoint_id)
 def encode_image_to_base64(image_path):
 	""" Load an image and convert to base64 """
 	try:
-		with Image.open(image_path) as img:
-			# Convert to RGB mode if needed
-			if img.mode != "RGB":
-				img = img.convert("RGB")
+		img = cv2.imread(image_path).astype(np.uint8)
+		img = cv2.resize(img, (1024, 1024))
+		encoded_image = base64.b64encode(img.tobytes()).decode('utf-8')
 
-			img = img.resize((1024, 1024), Image.Resampling.LANCZOS)
-			# Save to bytes buffer
-			buffer = io.BytesIO()
-			img.save(buffer, format="JPEG")
-
-			# Encode to base64
-			encoded_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-			return encoded_image
+		return encoded_image, str(img.dtype), list(img.shape)
+	
 	except Exception as e:
 		print(f"Error encoding image {image_path}: {str(e)}")
 		return None
@@ -67,20 +59,21 @@ def send_request_sync(image_path, args):
 		print(f"Processing image {os.path.basename(image_path)}")
 
 		# Encode the image
-		b64_img = encode_image_to_base64(image_path)
+		b64_img, img_dtype, img_shape = encode_image_to_base64(image_path)
 		if not b64_img:
 			return
 
 		# Prepare the request
 		url = f"https://api.runpod.ai/v2/{args['endpoint_id']}/runsync"
-		print(url)
 		headers = {
 			"Authorization": f"Bearer {args['api_key']}",
 			"Content-Type": "application/json"
 		}
 		payload = {
 			"input": {
-				"image": b64_img
+				"image": b64_img,
+				"dtype": img_dtype,
+				"shape": img_shape
 			}
 		}
 
@@ -106,12 +99,17 @@ for file_name in FILE_NAMES:
 	response_json = send_request_sync(image_path=FILE_PATH, args=args)
 	response_message = decode_b64_to_image(response_json, out_path=Path('output') / os.path.basename(FILE_PATH))
 
-	print(response_json['output'].keys(), response_json['output']['server_inference_time'])
+	# print(response_json)
 
-	output = response_json['output']['effdet']['bboxes']
+	# print(response_json['output'].keys(), response_json['output']['server_inference_time'])
 
-	output_bytes = base64.b64decode(output)
-	out_array = np.frombuffer(output_bytes, dtype=np.float32).reshape((100, 6))
+	effdet_output = response_json['output']['effdet']['bboxes']
+	dlv3p_output = response_json['output']['dlv3p']['out_map']
+	dlv3p_shape = tuple(response_json['output']['dlv3p']['shape'])
+	dlv3p_dtype = response_json['output']['dlv3p']['dtype']
 
-	print(out_array)
+	output_bytes = base64.b64decode(dlv3p_output)
+	out_array = np.frombuffer(output_bytes, dtype=dlv3p_dtype).reshape(dlv3p_shape)*25
+
 	
+	cv2.imwrite(Path('output') / file_name, out_array)
